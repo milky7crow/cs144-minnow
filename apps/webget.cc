@@ -1,10 +1,10 @@
 #include "socket.hh"
 
 #include <cstdlib>
+#include <format>
 #include <iostream>
 #include <span>
 #include <string>
-#include <format>
 
 using namespace std;
 
@@ -12,7 +12,7 @@ void get_URL( const string& host, const string& path )
 {
   TCPSocket socket;
   socket.connect( Address( host, "http" ) );
-  //socket.connect( Address( host, 8000) );
+  // socket.connect( Address( host, 8000) );
 
   string message = format( "GET {} HTTP/1.1\r\n"
                            "Host: {}\r\n"
