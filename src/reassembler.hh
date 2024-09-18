@@ -51,7 +51,7 @@ private:
 
   std::vector<std::pair<char, bool>> buffer_;
   size_t buffer_head_, buffer_cap_;
-  uint64_t pending_;
-  uint64_t expected_;
+  uint64_t pending_{0};
+  uint64_t expected_{0};
   uint64_t beyond_last_{UINT64_MAX};
 };
