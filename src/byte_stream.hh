@@ -25,10 +25,10 @@ public:
 protected:
   // Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
   uint64_t capacity_;
-  uint64_t bytes_pushed_;
-  uint64_t bytes_popped_;
-  bool error_ {};
-  bool closed_ {};
+  uint64_t bytes_pushed_ {0};
+  uint64_t bytes_popped_ {0};
+  bool error_ {false};
+  bool closed_ {false};
 
   std::vector<char> buffer_;
   std::vector<char>::iterator it_write, it_read;
