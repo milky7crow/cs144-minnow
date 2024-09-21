@@ -1,8 +1,8 @@
 #pragma once
 
 #include "byte_stream.hh"
-#include <vector>
 #include <utility>
+#include <vector>
 
 class Reassembler
 {
@@ -50,8 +50,8 @@ private:
   ByteStream output_; // the Reassembler writes to this ByteStream
 
   std::vector<std::pair<char, bool>> buffer_;
-  size_t buffer_head_{0}, buffer_cap_;
-  uint64_t pending_{0};
-  uint64_t expected_{0};
-  uint64_t beyond_last_{UINT64_MAX};
+  size_t buffer_head_ { 0 }, buffer_cap_;
+  uint64_t pending_ { 0 };
+  uint64_t expected_ { 0 };
+  uint64_t beyond_last_ { UINT64_MAX };
 };
