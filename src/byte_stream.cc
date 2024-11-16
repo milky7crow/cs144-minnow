@@ -1,65 +1,76 @@
 #include "byte_stream.hh"
+#include <string_view>
 
 using namespace std;
 
-ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ) {}
+ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ), buffer_( capacity, '\0' ) {}
 
 bool Writer::is_closed() const
 {
-  // Your code here.
-  return {};
+  return closed_;
 }
 
 void Writer::push( string data )
 {
-  // Your code here.
-  (void)data;
+  if ( data.size() > available_capacity() ) {
+    data.resize( available_capacity() );
+  }
+
+  if ( capacity_ - tail_ < data.size() ) {
+    copy( buffer_.begin() + head_, buffer_.begin() + tail_, buffer_.begin() );
+    tail_ = tail_ - head_;
+    head_ = 0;
+  }
+
+  copy( data.begin(), data.end(), buffer_.begin() + tail_ );
+  
+  tail_ += data.size();
+  bytes_pushed_ += data.size();
+
   return;
 }
 
 void Writer::close()
 {
-  // Your code here.
+  closed_ = true;
+  return;
 }
 
 uint64_t Writer::available_capacity() const
 {
-  // Your code here.
-  return {};
+  return capacity_ - ( tail_ - head_ );
 }
 
 uint64_t Writer::bytes_pushed() const
 {
-  // Your code here.
-  return {};
+  return bytes_pushed_;
 }
 
 bool Reader::is_finished() const
 {
-  // Your code here.
-  return {};
+  return closed_ && bytes_buffered() == 0;
 }
 
 uint64_t Reader::bytes_popped() const
 {
-  // Your code here.
-  return {};
+  return bytes_popped_;
 }
 
 string_view Reader::peek() const
 {
-  // Your code here.
-  return {};
+  return string_view( buffer_.begin() + head_, buffer_.begin() + tail_ );
 }
 
 void Reader::pop( uint64_t len )
 {
-  // Your code here.
-  (void)len;
+  len = min( len, bytes_buffered() );
+  head_ += len;
+  bytes_popped_ += len;
+
+  return;
 }
 
 uint64_t Reader::bytes_buffered() const
 {
-  // Your code here.
-  return {};
+  return tail_ - head_;
 }
