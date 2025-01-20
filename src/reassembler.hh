@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <sys/types.h>
 #include <utility>
-#include <vector>
+#include <list>
 
 class Reassembler
 {
@@ -12,7 +12,8 @@ public:
   // Construct Reassembler to write into given ByteStream.
   explicit Reassembler( ByteStream&& output )
     : output_( std::move( output ) )
-    , buffer_( output_.writer().available_capacity(), std::make_pair( '\0', false ) )
+    , buffer_( output.writer().available_capacity(), '0' )
+    , seg_locs_()
   {}
 
   /*
@@ -49,8 +50,15 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
-  std::vector<std::pair<char, bool>> buffer_;
-  uint64_t valid_count_ { 0 };
-  uint64_t expected_ { 0 };
-  uint64_t past_final_index_ { UINT64_MAX };
+
+  std::string buffer_;
+  std::list<std::pair<uint64_t, uint64_t>> seg_locs_;
+  uint64_t expecting_ = 0;
+  uint64_t past_last_index_ = UINT64_MAX;
+  uint64_t first_unacceptable_index_ = 0;
+
+  uint64_t first_confirmed_index() const;
+  uint64_t last_confirmed_index() const;
+  uint64_t update_unacceptable();
+  void merge_locs();
 };

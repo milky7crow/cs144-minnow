@@ -1,90 +1,109 @@
 #include "reassembler.hh"
+#include <cstdint>
+#include <sys/types.h>
+#include <utility>
 
 using namespace std;
 
 void Reassembler::insert( uint64_t first_index, string data, bool is_last_substring )
 {
-  auto past_last = first_index + data.size();
-  auto available_capacity = output_.writer().available_capacity();
-  auto past_acceptable = expected_ + available_capacity;
+  uint64_t past_end_index = first_index + data.size();
+  update_unacceptable();
 
-  // needs unmodified data
+  // update last index
   if ( is_last_substring ) {
-    past_final_index_ = past_last;
+    past_last_index_ = past_end_index;
+    if ( expecting_ == past_last_index_ ) {
+      output_.writer().close();
+      return;
+    }
   }
-  // close the stream in time
-  if ( expected_ == past_final_index_ ) {
-    output_.writer().close();
-  }
 
-  // reject wholly unacceptable data
-  if ( first_index >= past_acceptable )
-    return;
-
-  // reject wholly received data
-  if ( past_last <= expected_ )
-    return;
-
-  // cutoff confirmed bytes for partly received data
-  if ( first_index < expected_ ) {
-    insert( expected_, data.substr( expected_ - first_index ), is_last_substring );
+  // reject fully-accepted / fully-unaccepable data
+  if ( past_end_index <= expecting_  || first_index >= first_unacceptable_index_ ) {
     return;
   }
 
-  // cutoff unacceptable data
-  if ( past_last > past_acceptable ) {
-    data.resize( past_acceptable - first_index );
-    past_last = first_index + data.size();
+  // trim accepted data
+  if ( first_index < expecting_ ) {
+    insert( expecting_, data.substr(( expecting_ - first_index )), false );
+    return;
+  }
+  // trim unacceptable data
+  if ( past_end_index > first_unacceptable_index_ ) {
+    insert( first_index, data.substr(0, past_end_index - first_unacceptable_index_ ), false );
+    return;
   }
 
-  // adjust buffer size
-  buffer_.resize( std::max( buffer_.size(), available_capacity ), { '\0', false} );
+  std::copy( data.begin(), data.end(), buffer_.begin() + first_index - expecting_ );
+  seg_locs_.push_back( std::make_pair(first_index, past_end_index - 1 ) );
+  seg_locs_.sort();
+  merge_locs();
 
-  // copy data into buffer
-  auto dst = buffer_.begin() + ( first_index - expected_ );
-  for ( const auto& ch : data ) {
-    if ( !dst->second )
-      ++valid_count_;
-    dst->first = ch;
-    dst->second = true;
-    ++dst;
-  }
+  // if push-able
+  if ( expecting_ == first_confirmed_index() ) {
+    auto pushing_size = seg_locs_.begin()->second - expecting_ + 1;
 
-  // push if possible
-  if ( buffer_[0].second ) {
-    // chars => string
-    std::string load;
-    auto src = buffer_.begin();
-    for ( ; src != buffer_.end(); ++src ) {
-      if ( !src->second )
-        break;
-
-      load += src->first;
+    output_.writer().push( buffer_.substr(0, pushing_size ) );
+    seg_locs_.pop_front();
+    if ( !seg_locs_.empty() ) {
+      // std::copy( buffer_.begin() + second_seg_begin_offset,
+      //            buffer_.begin() + last_confirmed_index() - expecting_ + 1,
+      //            buffer_.begin() + second_seg_begin_offset - pushing_size );
+      std::copy( buffer_.cbegin() + ( seg_locs_.cbegin()->first - expecting_ ),
+                 buffer_.cbegin() + ( seg_locs_.crbegin()->second - expecting_ + 1 ),
+                 buffer_.begin() + ( seg_locs_.cbegin()->first - expecting_ - pushing_size ) );
     }
 
-    // push
-    output_.writer().push( load );
-
-    // adjust buffer
-    auto copied_size = buffer_.end() - src;
-    std::copy( src, buffer_.end(), buffer_.begin() );
-    // wipe validness beyond last copied byte
-    for ( auto it = buffer_.begin() + copied_size; it != buffer_.end(); ++it ) {
-      it->second = false;
+    expecting_ += pushing_size;
+    if ( expecting_ == past_last_index_ ) {
+      output_.writer().close();
     }
-    // adjust valid count
-    valid_count_ -= load.size();
-    // adjust expected
-    expected_ += load.size();
-  }
-  
-  // double check
-  if ( expected_ == past_final_index_ ) {
-    output_.writer().close();
   }
 }
 
 uint64_t Reassembler::bytes_pending() const
 {
-  return valid_count_;
+  uint64_t res = 0;
+  for ( const auto &loc : seg_locs_ ) {
+    res += loc.second - loc.first + 1;
+  }
+
+  return res;
+}
+
+uint64_t Reassembler::first_confirmed_index() const
+{
+  return seg_locs_.empty() ? 0 : seg_locs_.cbegin()->first;
+}
+
+uint64_t Reassembler::last_confirmed_index() const
+{
+  return seg_locs_.empty() ? seg_locs_.crbegin()->second : 0;
+}
+
+uint64_t Reassembler::update_unacceptable()
+{
+  return first_unacceptable_index_ = expecting_ + output_.writer().available_capacity();
+}
+
+void Reassembler::merge_locs()
+{
+  if ( seg_locs_.size() <= 1 ) {
+    return;
+  }
+
+  auto i = seg_locs_.begin();
+  while ( i != seg_locs_.end() ) {
+    auto j = std::next( i );
+    if ( j == seg_locs_.end() )
+      break;
+
+    if ( i->second + 1 >= j->first ) {
+      i->second = std::max( i->second, j->second );
+      seg_locs_.erase( j );
+    } else {
+      ++i;
+    }
+  }
 }
