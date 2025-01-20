@@ -12,10 +12,12 @@ bool Writer::is_closed() const
 
 void Writer::push( string data )
 {
+  // trim data if no enough absolute space
   if ( data.size() > available_capacity() ) {
     data.resize( available_capacity() );
   }
 
+  // move data to the beginning of the buffer if no enough space in the back
   if ( capacity_ - tail_ < data.size() ) {
     copy( buffer_.begin() + head_, buffer_.begin() + tail_, buffer_.begin() );
     tail_ = tail_ - head_;

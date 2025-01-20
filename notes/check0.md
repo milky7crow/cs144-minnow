@@ -1,6 +1,6 @@
 ### STRAIGHT BUFFER (CURRENT)
 
-Speed test result: 14-21 Gbps
+Speed test result: 14~21 Gbps
 
 Mainain a head and a tail index, push at tail and pop at head. Move data back 
 to the start when there's no enough space to hold the new data slice.

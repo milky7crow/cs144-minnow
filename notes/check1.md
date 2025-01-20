@@ -1,6 +1,6 @@
 ### VECTOR BUFFER (CURRENT)
 
-Speed test result: ~8 Gbps
+Speed test result: 13~20 Gbps
 
 Use std::string to store data in buffer, std::list<pair<uint64_t, uint64_t>>
 to store start and end index of data segments in buffer. Segments are merged

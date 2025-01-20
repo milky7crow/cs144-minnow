@@ -55,10 +55,6 @@ private:
   std::list<std::pair<uint64_t, uint64_t>> seg_locs_;
   uint64_t expecting_ = 0;
   uint64_t past_last_index_ = UINT64_MAX;
-  uint64_t first_unacceptable_index_ = 0;
 
-  uint64_t first_confirmed_index() const;
-  uint64_t last_confirmed_index() const;
-  uint64_t update_unacceptable();
   void merge_locs();
 };
