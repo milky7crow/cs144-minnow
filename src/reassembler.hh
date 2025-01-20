@@ -1,12 +1,20 @@
 #pragma once
 
 #include "byte_stream.hh"
+#include <cstdint>
+#include <sys/types.h>
+#include <utility>
+#include <list>
 
 class Reassembler
 {
 public:
   // Construct Reassembler to write into given ByteStream.
-  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) {}
+  explicit Reassembler( ByteStream&& output )
+    : output_( std::move( output ) )
+    , buffer_( output.writer().available_capacity(), '0' )
+    , seg_locs_()
+  {}
 
   /*
    * Insert a new substring to be reassembled into a ByteStream.
@@ -42,4 +50,15 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
+
+  std::string buffer_;
+  std::list<std::pair<uint64_t, uint64_t>> seg_locs_;
+  uint64_t expecting_ = 0;
+  uint64_t past_last_index_ = UINT64_MAX;
+  uint64_t first_unacceptable_index_ = 0;
+
+  uint64_t first_confirmed_index() const;
+  uint64_t last_confirmed_index() const;
+  uint64_t update_unacceptable();
+  void merge_locs();
 };
