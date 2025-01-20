@@ -12,7 +12,7 @@ public:
   // Construct Reassembler to write into given ByteStream.
   explicit Reassembler( ByteStream&& output )
     : output_( std::move( output ) )
-    , buffer_( output.writer().available_capacity(), '0' )
+    , buffer_( output_.writer().available_capacity(), '0' )
     , seg_locs_()
   {}
 
