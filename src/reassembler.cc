@@ -1,4 +1,5 @@
 #include "reassembler.hh"
+#include <algorithm>
 #include <cstdint>
 #include <sys/types.h>
 #include <utility>
@@ -36,8 +37,9 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
   }
 
   std::copy( data.begin(), data.end(), buffer_.begin() + first_index - expecting_ );
-  seg_locs_.push_back( std::make_pair(first_index, past_end_index - 1 ) );
-  seg_locs_.sort();
+  auto seg = std::make_pair(first_index, past_end_index - 1 );
+  auto it = std::lower_bound( seg_locs_.begin(), seg_locs_.end(), seg );
+  seg_locs_.insert( it, seg );
   merge_locs();
 
   // if push-able
@@ -47,9 +49,6 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     output_.writer().push( buffer_.substr(0, pushing_size ) );
     seg_locs_.pop_front();
     if ( !seg_locs_.empty() ) {
-      // std::copy( buffer_.begin() + second_seg_begin_offset,
-      //            buffer_.begin() + last_confirmed_index() - expecting_ + 1,
-      //            buffer_.begin() + second_seg_begin_offset - pushing_size );
       std::copy( buffer_.cbegin() + ( seg_locs_.cbegin()->first - expecting_ ),
                  buffer_.cbegin() + ( seg_locs_.crbegin()->second - expecting_ + 1 ),
                  buffer_.begin() + ( seg_locs_.cbegin()->first - expecting_ - pushing_size ) );
