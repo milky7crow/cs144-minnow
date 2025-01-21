@@ -3,20 +3,23 @@
 #include "byte_stream.hh"
 #include "tcp_receiver_message.hh"
 #include "tcp_sender_message.hh"
+#include "wrapping_integers.hh"
 
 #include <cstdint>
 #include <functional>
-#include <list>
-#include <memory>
-#include <optional>
-#include <queue>
+#include <deque>
 
 class TCPSender
 {
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms )
+    : input_( std::move( input ) )
+    , isn_( isn )
+    , initial_RTO_ms_( initial_RTO_ms )
+    , current_sn_( isn )
+    , current_RTO_ms_( initial_RTO_ms )
+    , outstanding_()
   {}
 
   /* Generate an empty TCPSenderMessage */
@@ -48,4 +51,21 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+
+  Wrap32 current_sn_;
+
+  uint16_t window_size_ { 1 };
+
+  uint64_t current_RTO_ms_;
+  uint64_t timer_count_ { 0 };
+  bool timer_enabled_ { false };
+
+  uint64_t consecutive_retransmition_ { 0 };
+
+  std::deque<TCPSenderMessage> outstanding_;
+
+  void reset_timer();
+  void start_timer();
+  void stop_timer();
+  bool is_timer_expired() const;
 };
