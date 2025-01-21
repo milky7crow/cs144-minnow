@@ -53,6 +53,8 @@ private:
   uint64_t initial_RTO_ms_;
 
   Wrap32 current_sn_;
+  bool fin_sent_ { false };
+  bool fin_acked_ { false };
 
   uint16_t window_size_ { 1 };
 
