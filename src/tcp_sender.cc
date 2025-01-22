@@ -8,8 +8,8 @@
 
 using namespace std;
 
-// perform a - b, if underflows, return val
-uint64_t nneg_else( uint64_t a, uint64_t b, uint64_t val ) {
+// not negative, else val
+uint64_t nneg_else( uint64_t a, uint64_t b, uint64_t val = 0UL ) {
   if ( a >= b )
     return a - b;
   else
@@ -28,37 +28,39 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
+  // NOTE: ensure fin can only be pushed once
+  // TODO: any better way?
+  if ( fin_sent_ )
+    return;
+
   auto msg = make_empty_message();
   size_t mod_window_size = window_size_ == 0 ? 1 : window_size_;
 
   // NOTE: non-zero window size does NOT MEAN NON-FULL window
   // NOTE: mod_window_size - in_flight - SYN might be underflow, since window size may change after a message was sent
-  auto payload_size_limit = std::min( TCPConfig::MAX_PAYLOAD_SIZE, static_cast<size_t>( nneg_else( mod_window_size, sequence_numbers_in_flight() + msg.SYN, 0UL ) ) );
+  auto payload_size_limit = std::min( TCPConfig::MAX_PAYLOAD_SIZE, static_cast<size_t>( nneg_else( mod_window_size, sequence_numbers_in_flight() + msg.SYN ) ) );
   msg.payload = reader().peek().substr( 0, payload_size_limit );
   input_.reader().pop( msg.payload.size() );
 
   msg.FIN = reader().is_finished();
 
-  // NOTE: ensure fin can only be pushed once
-  // TODO: any better way?
-  if ( msg.FIN && fin_sent_ )
-    return;
-
   // NOTE: when there's no window space for FIN, save it for the next message, instead of trimming payload
-  if ( msg.sequence_length() > mod_window_size - sequence_numbers_in_flight() )
-    // msg.payload.erase( msg.payload.end() - ( msg.sequence_length() - mod_window_size ), msg.payload.end() );
+  // payload size is limited by mod_window_size - seqno_in_flight - SYN, so if seq len exceeded available space again,
+  // it's got to be FIN, which is only 1 byte
+  if ( msg.sequence_length() > nneg_else( mod_window_size, sequence_numbers_in_flight() ) )
     msg.FIN = false;
 
-  // empty message & beyond-window flag-only message
-  if ( msg.sequence_length() == 0 || msg.sequence_length() > nneg_else( mod_window_size, sequence_numbers_in_flight(), 0UL ) )
+  // don't send empty message
+  if ( msg.sequence_length() == 0 )
     return;
   transmit( msg );
 
+  // maintenance after sending a message
   fin_sent_ |= msg.FIN;
   outstanding_.push_back( msg );
   sequence_numbers_in_flight_ += msg.sequence_length();
-  current_sn_ = current_sn_ + msg.sequence_length();
   // when fin_sent_ is true, current_sn_ is past_fin_sn_
+  current_sn_ = current_sn_ + msg.sequence_length();
 
   // NOTE: resetting and starting timer is differenent, since resetting timer here will wipe former counter
   start_timer();
