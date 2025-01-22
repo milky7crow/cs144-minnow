@@ -57,6 +57,7 @@ private:
   bool fin_acked_ { false };
 
   uint16_t window_size_ { 1 };
+  uint64_t sequence_numbers_in_flight_ { 0 };
 
   uint64_t current_RTO_ms_;
   uint64_t timer_count_ { 0 };

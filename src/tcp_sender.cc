@@ -18,10 +18,7 @@ uint64_t nneg_else( uint64_t a, uint64_t b, uint64_t val ) {
 
 uint64_t TCPSender::sequence_numbers_in_flight() const
 {
-  uint64_t res = 0;
-  for ( const auto& msg : outstanding_ )
-    res += msg.sequence_length();
-  return res;
+  return sequence_numbers_in_flight_;
 }
 
 uint64_t TCPSender::consecutive_retransmissions() const
@@ -59,6 +56,7 @@ void TCPSender::push( const TransmitFunction& transmit )
 
   fin_sent_ |= msg.FIN;
   outstanding_.push_back( msg );
+  sequence_numbers_in_flight_ += msg.sequence_length();
   current_sn_ = current_sn_ + msg.sequence_length();
   // when fin_sent_ is true, current_sn_ is past_fin_sn_
 
@@ -100,6 +98,7 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     // NOTE: cannot ack a seqno that haven't been sent yet
     if ( unwrapped_it_seqno + it->sequence_length() <= unwrapped_ackno && unwrapped_ackno <= unwrapped_curr_seqno ) {
       // acked new message
+      sequence_numbers_in_flight_ -= it->sequence_length();
       it = outstanding_.erase( it );
 
       current_RTO_ms_ = initial_RTO_ms_;
