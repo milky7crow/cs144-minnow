@@ -56,7 +56,7 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
   // NOTE: frame with ethernet address that is not ours should be ignored
-  if ( frame.header.dst != ethernet_address_ )
+  if ( frame.header.dst != ethernet_address_ && frame.header.dst != ETHERNET_BROADCAST )
     return;
 
   InternetDatagram dgram;
