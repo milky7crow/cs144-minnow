@@ -45,7 +45,7 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   // assert( curr_time_ > mapping->second.time );
   if ( mapping == mapping_cache_.end()
        || ( !mapping->second.valid && curr_time_ - mapping->second.time >= ARP_RESENT_COOLDOWN_MS ) ) {
-    tx_arp( next_hop.ipv4_numeric() );
+    tx_arp_request( next_hop.ipv4_numeric() );
     datagrams_cached_.push_back( { dgram, next_hop } );
   } else {
     tx_ipv4( dgram, mapping->second.eth_addr );
@@ -74,7 +74,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
       if ( parse( msg, frame.payload ) ) {
         ip_numeric = msg.sender_ip_address;
         if ( msg.opcode == ARPMessage::OPCODE_REQUEST && msg.target_ip_address == ip_address_.ipv4_numeric() )
-          tx_arp( msg.sender_ip_address );
+          tx_arp_reply( frame.header.src, msg.sender_ip_address );
       }
   
   }
@@ -118,20 +118,16 @@ void NetworkInterface::tx_ipv4( const InternetDatagram& dgram, const EthernetAdd
   transmit( eth_frame );
 }
 
-void NetworkInterface::tx_arp( const uint32_t ip_numeric )
+void NetworkInterface::tx_arp_request( uint32_t ip_numeric )
 {
-  auto msg = ARPMessage();
-  msg.opcode = ARPMessage::OPCODE_REQUEST;
-  msg.sender_ethernet_address = ethernet_address_;
-  msg.sender_ip_address = ip_address_.ipv4_numeric();
-  // NOTE: Broadcast ethernet address is placed at ethernet header, 
-  //       target ethernet address in arp message should be ignored.
-  //       Anyway, tests require it to be 0.
-  msg.target_ethernet_address = { 0, 0, 0, 0, 0, 0 };
-  msg.target_ip_address = ip_numeric;
+  auto arp_msg = make_arp( ARPMessage::OPCODE_REQUEST, { 0, 0, 0, 0, 0, 0 }, ip_numeric );
+  auto eth_frame = make_frame( ETHERNET_BROADCAST, EthernetHeader::TYPE_ARP, arp_msg );
+  transmit( eth_frame );
+}
 
-  auto eth_header = EthernetHeader( ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_ARP );
-  auto eth_frame = EthernetFrame( eth_header, serialize( msg ) );
+void NetworkInterface::tx_arp_reply( const EthernetAddress& eth_addr, const uint32_t ip_numeric ) {
+  auto arp_msg = make_arp( ARPMessage::OPCODE_REPLY, eth_addr, ip_numeric );
+  auto eth_frame = make_frame( eth_addr, EthernetHeader::TYPE_ARP, arp_msg );
   transmit( eth_frame );
 }
 
@@ -147,4 +143,29 @@ void NetworkInterface::send_cached()
       ++it;
     }
   }
+}
+
+ARPMessage NetworkInterface::make_arp( uint16_t opcode,
+                                       const EthernetAddress& target_eth,
+                                       uint32_t target_ip ) const
+{
+  auto msg = ARPMessage();
+  msg.opcode = opcode;
+  msg.sender_ethernet_address = ethernet_address_;
+  msg.sender_ip_address = ip_address_.ipv4_numeric();
+  // NOTE: Broadcast ethernet address is placed at ethernet header,
+  //       target ethernet address in arp message should be ignored.
+  //       Anyway, tests require it to be 0.
+  msg.target_ethernet_address = target_eth;
+  msg.target_ip_address = target_ip;
+  return msg;
+}
+
+template<class T>
+EthernetFrame NetworkInterface::make_frame( const EthernetAddress& dst,
+                                            uint16_t type,
+                                            const T& payload ) const
+{
+  auto eth_header = EthernetHeader( dst, ethernet_address_, type );
+  return EthernetFrame( eth_header, serialize( payload ));
 }

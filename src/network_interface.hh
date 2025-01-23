@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <list>
 
@@ -110,7 +111,15 @@ private:
 
   // helper methods
   void tx_ipv4( const InternetDatagram& dgram, const EthernetAddress& eth_addr );
-  void tx_arp( const uint32_t ip_numeric );
+  void tx_arp_request( uint32_t ip_numeric );
+  void tx_arp_reply( const EthernetAddress& eth_addr, const uint32_t ip_numeric );
   // check if there are send-able dgrams cached, and send them
   void send_cached();
+
+  // make methods
+  ARPMessage make_arp( uint16_t opcode, const EthernetAddress& target_eth, uint32_t target_ip ) const;
+  template<class T>
+  EthernetFrame make_frame( const EthernetAddress& dst,
+                            uint16_t type,
+                            const T& payload ) const;
 };
