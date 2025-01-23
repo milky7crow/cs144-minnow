@@ -13,6 +13,8 @@
 
 using namespace std;
 
+const EthernetAddress ZERO_ETHERNET_ADDRESS = { 0, 0, 0, 0, 0, 0 };
+
 //! \param[in] ethernet_address Ethernet (what ARP calls "hardware") address of the interface
 //! \param[in] ip_address IP (what ARP calls "protocol") address of the interface
 NetworkInterface::NetworkInterface( string_view name,
@@ -37,17 +39,15 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   // try to find mapping in cache
   auto mapping = mapping_cache_.find( next_hop.ipv4_numeric() );
 
-  // sent arp request if:
-  // 1. entry not present
-  // 2. request timeout
+  // sent arp request if: entry not present
   //
-  // timeout entry will be cleared in tick()
+  // waiting-for-reply timeout entres will be cleared in tick()
   // assert( curr_time_ > mapping->second.time );
-  if ( mapping == mapping_cache_.end()
-       || ( !mapping->second.valid && curr_time_ - mapping->second.time >= ARP_RESENT_COOLDOWN_MS ) ) {
+  if ( mapping == mapping_cache_.end() ) {
     tx_arp_request( next_hop.ipv4_numeric() );
     datagrams_cached_.push_back( { dgram, next_hop } );
-  } else {
+  } else if ( mapping->second.valid ) {
+    // implement cooldown logic
     tx_ipv4( dgram, mapping->second.eth_addr );
   }
 }
@@ -83,10 +83,8 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
   auto mapping = mapping_cache_.find( ip_numeric );
   if ( mapping != mapping_cache_.end() ) {
     // refresh
-    auto entry = mapping->second;
-    entry.eth_addr = frame.header.src;
-    entry.valid = true;
-    entry.time = curr_time_;
+    auto entry = CacheTableEntry( frame.header.src, true, curr_time_ );
+    mapping->second = entry;
   } else {
     // add
     auto entry = CacheTableEntry( frame.header.src, true, curr_time_ );
@@ -103,7 +101,10 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
   // expire outdated mapping cache entries
   // TODO: can we use ordered_map to boost time-based / ip-based query
   for ( auto it = mapping_cache_.begin(); it != mapping_cache_.end(); ) {
-    if ( curr_time_ - it->second.time >= ENTRY_VALID_MS ) {
+    // assert( curr_time_ > it->second.time );
+    auto time_elapsed = curr_time_ - it->second.time;
+    if ( ( it->second.valid && time_elapsed >= ENTRY_VALID_MS )
+         || ( !it->second.valid && time_elapsed >= ARP_RESENT_COOLDOWN_MS ) ) {
       it = mapping_cache_.erase( it );
     } else {
       ++it;
@@ -120,9 +121,12 @@ void NetworkInterface::tx_ipv4( const InternetDatagram& dgram, const EthernetAdd
 
 void NetworkInterface::tx_arp_request( uint32_t ip_numeric )
 {
-  auto arp_msg = make_arp( ARPMessage::OPCODE_REQUEST, { 0, 0, 0, 0, 0, 0 }, ip_numeric );
+  auto arp_msg = make_arp( ARPMessage::OPCODE_REQUEST, ZERO_ETHERNET_ADDRESS, ip_numeric );
   auto eth_frame = make_frame( ETHERNET_BROADCAST, EthernetHeader::TYPE_ARP, arp_msg );
   transmit( eth_frame );
+
+  auto entry = CacheTableEntry( ZERO_ETHERNET_ADDRESS, false, curr_time_ );
+  mapping_cache_.insert( { ip_numeric, entry } );
 }
 
 void NetworkInterface::tx_arp_reply( const EthernetAddress& eth_addr, const uint32_t ip_numeric ) {

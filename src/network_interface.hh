@@ -101,6 +101,12 @@ private:
     // time of entry last used if valid is true
     // time of arp request sent if valid is false
     size_t time;
+
+    CacheTableEntry( const EthernetAddress& eth_addr_, bool valid_, size_t time_ ) {
+      eth_addr = eth_addr_;
+      valid = valid_;
+      time = time_;
+    }
   };
   // ip to ethernet address mapping
   std::unordered_map<uint32_t, CacheTableEntry> mapping_cache_ {};
