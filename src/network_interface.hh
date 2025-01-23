@@ -1,9 +1,15 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <queue>
+#include <unordered_map>
+#include <list>
 
 #include "address.hh"
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
+#include "ethernet_header.hh"
 #include "ipv4_datagram.hh"
 
 // A "network interface" that connects IP (the internet layer, or network layer)
@@ -81,4 +87,30 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+
+  // Datagrams that's waiting to be sent
+  std::list<std::pair<InternetDatagram, Address>> datagrams_cached_ {};
+
+  struct CacheTableEntry {
+    EthernetAddress eth_addr;
+    // true if received arp reply
+    // flase if not yet
+    bool valid;
+    // time of entry last used if valid is true
+    // time of arp request sent if valid is false
+    size_t time;
+  };
+  // ip to ethernet address mapping
+  std::unordered_map<uint32_t, CacheTableEntry> mapping_cache_ {};
+
+  size_t curr_time_ { 0 };
+  const size_t ENTRY_VALID_MS { 30 * 1000 };
+  const size_t ARP_RESENT_COOLDOWN_MS { 5 * 1000 };
+
+  // helper methods
+  void tx_ipv4( const InternetDatagram& dgram, const EthernetAddress& eth_addr );
+  void tx_arp( const Address& ip_addr );
+  // check if there are send-able dgrams cached, and send them
+  void send_cached();
 };
