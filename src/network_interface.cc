@@ -116,7 +116,10 @@ void NetworkInterface::tx_arp( const Address& ip_addr )
   msg.opcode = ARPMessage::OPCODE_REQUEST;
   msg.sender_ethernet_address = ethernet_address_;
   msg.sender_ip_address = ip_address_.ipv4_numeric();
-  msg.target_ethernet_address = ETHERNET_BROADCAST;
+  // NOTE: Broadcast ethernet address is placed at ethernet header, 
+  //       target ethernet address in arp message should be ignored.
+  //       Anyway, tests require it to be 0.
+  msg.target_ethernet_address = { 0, 0, 0, 0, 0, 0 };
   msg.target_ip_address = ip_addr.ipv4_numeric();
 
   auto eth_header = EthernetHeader( ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_ARP );
