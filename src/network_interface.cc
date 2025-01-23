@@ -55,6 +55,10 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 //! \param[in] frame the incoming Ethernet frame
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
+  // NOTE: frame with ethernet address that is not ours should be ignored
+  if ( frame.header.dst != ethernet_address_ )
+    return;
+
   InternetDatagram dgram;
   ARPMessage msg;
   uint32_t ip_numeral = 0;
