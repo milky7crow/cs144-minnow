@@ -110,7 +110,7 @@ private:
 
   // helper methods
   void tx_ipv4( const InternetDatagram& dgram, const EthernetAddress& eth_addr );
-  void tx_arp( const Address& ip_addr );
+  void tx_arp( const uint32_t ip_numeric );
   // check if there are send-able dgrams cached, and send them
   void send_cached();
 };
