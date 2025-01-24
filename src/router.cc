@@ -35,7 +35,8 @@ void Router::route()
 {
   for (auto ni : _interfaces ) {
     while ( !ni->datagrams_received().empty() ) {
-      auto& dgram = ni->datagrams_received().front();
+      auto dgram = ni->datagrams_received().front();
+      ni->datagrams_received().pop();
       size_t curr_match = _interfaces.size();
       std::optional<Address> next_hop = std::nullopt;
       uint8_t curr_prefix_length = 0;
@@ -50,11 +51,11 @@ void Router::route()
         }
       }
 
+      // drop if TTL reaches 0
+      if ( dgram.header.ttl == 0 || dgram.header.ttl == 1 )
+        continue;
       dgram.header.ttl -= 1;
       dgram.header.compute_checksum();
-      // drop if TTL reaches 0
-      if ( dgram.header.ttl == 0 )
-        continue;
 
       // drop if no routes found
       if ( curr_match == _interfaces.size() )
@@ -66,7 +67,7 @@ void Router::route()
       }
 
       _interfaces[curr_match]->send_datagram( dgram, next_hop.value() );
-      ni->datagrams_received().pop();
+      // ni->datagrams_received().pop();
     }
   }
 
