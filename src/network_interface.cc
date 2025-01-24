@@ -44,8 +44,9 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   // waiting-for-reply timeout entres will be cleared in tick()
   // assert( curr_time_ > mapping->second.time );
   if ( mapping == mapping_cache_.end() ) {
-    tx_arp_request( next_hop.ipv4_numeric() );
+    // NOTE: cache datagram before send arp req, or else the test would fail (nothing is cached)
     datagrams_cached_.push_back( { dgram, next_hop } );
+    tx_arp_request( next_hop.ipv4_numeric() );
   } else if ( mapping->second.valid ) {
     // implement cooldown logic
     tx_ipv4( dgram, mapping->second.eth_addr );

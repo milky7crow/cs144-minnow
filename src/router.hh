@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -35,4 +36,14 @@ public:
 private:
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
+
+  struct RouterTableEntry {
+    uint32_t route_prefix;
+    uint8_t prefix_length;
+    std::optional<Address> next_hop;
+    size_t interface_num;
+  };
+  std::vector<RouterTableEntry> router_table_ {};
+
+  bool longest_prefix_match( uint32_t dst_ip, uint32_t route_prefix, uint8_t prefix_length ) const;
 };
