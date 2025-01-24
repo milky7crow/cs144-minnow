@@ -42,7 +42,7 @@ void Router::route()
 
       for ( const auto& entry : router_table_ ) {
         if ( longest_prefix_match( dgram.header.dst, entry.route_prefix, entry.prefix_length ) ) {
-          if ( entry.route_prefix > curr_prefix_length ) {
+          if ( entry.route_prefix >= curr_prefix_length ) {
             curr_match = entry.interface_num;
             next_hop = entry.next_hop;
             curr_prefix_length = entry.prefix_length;
@@ -73,6 +73,10 @@ void Router::route()
 }
 
 bool Router::longest_prefix_match( uint32_t dst_ip, uint32_t route_prefix, uint8_t prefix_length ) const {
-  uint32_t mask = UINT32_MAX << ( sizeof(uint32_t) - prefix_length );
+  // NOTE: cannot shift uint32_t 32 bits
+  if ( prefix_length == 0 )
+    return true;
+
+  uint32_t mask = UINT32_MAX << ( 8 * sizeof(uint32_t) - prefix_length );
   return ( dst_ip & mask ) == ( route_prefix & mask );
 }
